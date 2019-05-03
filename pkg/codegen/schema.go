@@ -171,11 +171,24 @@ func schemaToGoType(sref *openapi3.SchemaRef, required bool) (string, error) {
 		return goType, nil
 	}
 
-	// Here, we handle several types of non-object schemas, and exit early if we
+	if schema.Type == "array" {
+		// For arrays, we'll get the type of the Items and throw a
+		// [] in front of it.
+		arrayType, err := schemaToGoType(schema.Items, true)
+		if err != nil {
+			return "", fmt.Errorf("error generating type for array: %s", err)
+		}
+		result := "[]" + arrayType
+
+		// Arrays are nullable, so there is no need to check "required"
+		return result, nil
+	}
+
+	// Here, we handle several primitive types of non-object schemas, and exit early if we
 	// can. Objects have a schema of empty string. See
 	// https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md#dataTypes
 	if schema.Type != "" {
-		return singleTypeToGoType(schema, required)
+		return primitiveTypeToGoType(schema, required)
 	}
 
 	desc, err := DescribeSchemaProperties(schema)
@@ -191,24 +204,13 @@ func schemaToGoType(sref *openapi3.SchemaRef, required bool) (string, error) {
 	return outType, nil
 }
 
-func singleTypeToGoType(schema *openapi3.Schema, required bool) (string, error) {
+func primitiveTypeToGoType(schema *openapi3.Schema, required bool) (string, error) {
 	t := schema.Type
 	f := schema.Format
 
 	var result string
 
 	switch t {
-	case "array":
-		// For arrays, we'll get the type of the Items and throw a
-		// [] in front of it.
-		arrayType, err := schemaToGoType(schema.Items, true)
-		if err != nil {
-			return "", fmt.Errorf("error generating type for array: %s", err)
-		}
-		result = "[]" + arrayType
-		// Arrays are nullable, so we return our result here, whether or
-		// not this field is required
-		return result, nil
 	case "integer":
 		// We default to int32 if format doesn't ask for something else.
 		if f == "int64" {

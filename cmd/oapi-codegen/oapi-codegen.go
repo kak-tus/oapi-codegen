@@ -25,8 +25,10 @@ import (
 )
 
 func main() {
-	var packageName string
-	flag.StringVar(&packageName, "package", "", "The package name for generated code")
+	var opt codegen.Options
+
+	flag.StringVar(&opt.PackageName, "package", "", "The package name for generated code")
+	flag.BoolVar(&opt.UsePgtype, "use-pgtype", false, "Use pgtype types from pgx for nullable types")
 	flag.Parse()
 
 	if flag.NArg() < 1 {
@@ -36,12 +38,12 @@ func main() {
 
 	// If the package name has not been specified, we will use the name of the
 	// swagger file.
-	if packageName == "" {
+	if opt.PackageName == "" {
 		path := flag.Arg(0)
 		baseName := filepath.Base(path)
 		// Split the base name on '.' to get the first part of the file.
 		nameParts := strings.Split(baseName, ".")
-		packageName = codegen.ToCamelCase(nameParts[0])
+		opt.PackageName = codegen.ToCamelCase(nameParts[0])
 	}
 
 	swagger, err := util.LoadSwagger(flag.Arg(0))
@@ -50,7 +52,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	stubs, err := codegen.GenerateServer(swagger, packageName)
+	stubs, err := codegen.GenerateServer(swagger, opt)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error generating server stubs: %s\n", err)
 		os.Exit(1)

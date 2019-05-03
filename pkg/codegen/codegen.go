@@ -28,9 +28,15 @@ import (
 	"github.com/deepmap/oapi-codegen/pkg/codegen/templates"
 )
 
+// Options using to pass configuration to generators.
+type Options struct {
+	PackageName string
+	UsePgtype   bool
+}
+
 // Uses the Go templating engine to generate all of our server wrappers from
 // the descriptions we've built up above from the schema objects.
-func GenerateServer(swagger *openapi3.Swagger, packageName string) (string, error) {
+func GenerateServer(swagger *openapi3.Swagger, opt Options) (string, error) {
 	// This creates the golang templates text package
 	t := template.New("oapi-codegen").Funcs(TemplateFunctions)
 	// This parses all of our own template files into the template object
@@ -113,7 +119,7 @@ func GenerateServer(swagger *openapi3.Swagger, packageName string) (string, erro
 		}
 	}
 
-	importsOut, err := GenerateImports(t, imports, packageName)
+	importsOut, err := GenerateImports(t, imports, opt)
 	if err != nil {
 		return "", fmt.Errorf("error generating imports: %s", err)
 	}
@@ -355,7 +361,7 @@ func GenerateTypes(t *template.Template, templateName string, types []TypeDefini
 }
 
 // Generate our import statements and package definition.
-func GenerateImports(t *template.Template, imports []string, packageName string) (string, error) {
+func GenerateImports(t *template.Template, imports []string, opt Options) (string, error) {
 	if len(imports) == 0 {
 		return "", nil
 	}
@@ -369,7 +375,7 @@ func GenerateImports(t *template.Template, imports []string, packageName string)
 		PackageName string
 	}{
 		Imports:     imports,
-		PackageName: packageName,
+		PackageName: opt.PackageName,
 	}
 	err := t.ExecuteTemplate(w, "imports.tmpl", context)
 	if err != nil {

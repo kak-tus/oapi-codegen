@@ -174,64 +174,8 @@ func schemaToGoType(sref *openapi3.SchemaRef, required bool) (string, error) {
 	// Here, we handle several types of non-object schemas, and exit early if we
 	// can. Objects have a schema of empty string. See
 	// https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md#dataTypes
-	t := schema.Type
-	f := schema.Format
-	if t != "" {
-		var result string
-		switch t {
-		case "array":
-			// For arrays, we'll get the type of the Items and throw a
-			// [] in front of it.
-			arrayType, err := schemaToGoType(schema.Items, true)
-			if err != nil {
-				return "", fmt.Errorf("error generating type for array: %s", err)
-			}
-			result = "[]" + arrayType
-			// Arrays are nullable, so we return our result here, whether or
-			// not this field is required
-			return result, nil
-		case "integer":
-			// We default to int32 if format doesn't ask for something else.
-			if f == "int64" {
-				result = "int64"
-			} else if f == "int32" || f == "" {
-				result = "int32"
-			} else {
-				return "", fmt.Errorf("invalid integer format: %s", f)
-			}
-		case "number":
-			// We default to float for "number"
-			if f == "double" {
-				result = "float64"
-			} else if f == "float" || f == "" {
-				result = "float32"
-			} else {
-				return "", fmt.Errorf("invalid number format: %s", f)
-			}
-		case "boolean":
-			if f != "" {
-				return "", fmt.Errorf("invalid format (%s) for boolean", f)
-			}
-			result = "bool"
-		case "string":
-			switch f {
-			case "", "password":
-				result = "string"
-			case "date-time", "date":
-				result = "time.Time"
-			default:
-				return "", fmt.Errorf("invalid string format: %s", f)
-			}
-		default:
-			return "", fmt.Errorf("unhandled Schema type: %s", t)
-		}
-
-		// If a field isn't required, we will pass it by pointer, so that it
-		// is nullable.
-		if !required {
-			result = "*" + result
-		}
-		return result, nil
+	if schema.Type != "" {
+		return singleTypeToGoType(schema, required)
 	}
 
 	desc, err := DescribeSchemaProperties(schema)
@@ -245,6 +189,69 @@ func schemaToGoType(sref *openapi3.SchemaRef, required bool) (string, error) {
 	}
 
 	return outType, nil
+}
+
+func singleTypeToGoType(schema *openapi3.Schema, required bool) (string, error) {
+	t := schema.Type
+	f := schema.Format
+
+	var result string
+
+	switch t {
+	case "array":
+		// For arrays, we'll get the type of the Items and throw a
+		// [] in front of it.
+		arrayType, err := schemaToGoType(schema.Items, true)
+		if err != nil {
+			return "", fmt.Errorf("error generating type for array: %s", err)
+		}
+		result = "[]" + arrayType
+		// Arrays are nullable, so we return our result here, whether or
+		// not this field is required
+		return result, nil
+	case "integer":
+		// We default to int32 if format doesn't ask for something else.
+		if f == "int64" {
+			result = "int64"
+		} else if f == "int32" || f == "" {
+			result = "int32"
+		} else {
+			return "", fmt.Errorf("invalid integer format: %s", f)
+		}
+	case "number":
+		// We default to float for "number"
+		if f == "double" {
+			result = "float64"
+		} else if f == "float" || f == "" {
+			result = "float32"
+		} else {
+			return "", fmt.Errorf("invalid number format: %s", f)
+		}
+	case "boolean":
+		if f != "" {
+			return "", fmt.Errorf("invalid format (%s) for boolean", f)
+		}
+		result = "bool"
+	case "string":
+		switch f {
+		case "", "password":
+			result = "string"
+		case "date-time", "date":
+			result = "time.Time"
+		default:
+			return "", fmt.Errorf("invalid string format: %s", f)
+		}
+	default:
+		return "", fmt.Errorf("unhandled Schema type: %s", t)
+	}
+
+	// If a field isn't required, we will pass it by pointer, so that it
+	// is nullable.
+	if !required {
+		result = "*" + result
+	}
+
+	return result, nil
 }
 
 // This constructs a Go type for a parameter, looking at either the schema or
